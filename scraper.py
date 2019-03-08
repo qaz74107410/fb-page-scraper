@@ -1,4 +1,5 @@
 import time
+import os
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
@@ -6,17 +7,22 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import TimeoutException
 from logger import logger
+from fbrequester import FBrequester
 
 # from struct import HTMLstruct
 
 # default setting
 DRIVER = webdriver.Firefox()
-CLOSE_DELAY = 5
+CLOSE_DELAY = 5 
 WAIT_TIME = 2
 MAX_RETRY = 5
 FB_URL = "https://m.facebook.com"
 SCAPE_OPTION = {}
 TRAIN_HTML_OPTION = {}
+JS_FILENAMES = [
+  "jquery-3.3.1.min.js",
+  "functions.js"
+]
 
 # string value defination
 # in case we use Portuguese for easier detection
@@ -26,7 +32,7 @@ TXT = {
 
 # status
 STATUS = {
-  
+
 }
 
 class Scraper(object):
@@ -34,11 +40,14 @@ class Scraper(object):
   is_login = False
   is_driveropen = False
   is_trainHTML = False
+  is_apiconnect = False
+
+  savefolder = "data"
 
   HTMLprops = {}
 
   def __init__(self, driver = DRIVER):
-    # setup facebook
+    # setup driver
     self.driver = self.init_driver(driver)
 
   '''
@@ -65,12 +74,35 @@ class Scraper(object):
     return False
 
   '''
-  DRIVER METHOD
+  TRAIN PART
   '''
 
-  def trainHTML(self, page, options = TRAIN_HTML_OPTION):
+  def api_connect(self, page_access_token, pageid) :
+    fb = FBrequester(page_access_token, pageid)
+    if fb.ping() :
+      self.fb = fb
+      return True
+    return False
+
+  def trainHTML(self, options = TRAIN_HTML_OPTION):
     driver = self.driver
-    
+    fb = self.fb
+
+    # 
+    # part 1 get data from page token by GraphAPI
+    # 
+
+    if not fb :
+      raise Exception(logger.error("StateException : " + "API not connected. Use api_connect() first."))
+
+    logger.info("Getting fb fanpage feeds...")
+    feeds = fb.getFeed()
+    fullpath = self.writefile(fb.pretty(feeds), fb.pageid, "txt", surfix = "token")
+    logger.info("Saved fb fanpage {}".format(fullpath))
+
+  '''
+  APPLIED PART
+  '''
   
   def scape(self, page, options = SCAPE_OPTION):
     driver = self.driver
@@ -102,6 +134,7 @@ class Scraper(object):
     self.wait_until(By.XPATH , "(//*[contains(text(), '" + TXT["SEARCH"] + "')] | //*[@value='" + TXT["SEARCH"] + "'])")
     self.is_login = True
     logger.info("Login Successful")
+    return True
     
   '''
   DRIVER HELPER
@@ -136,3 +169,36 @@ class Scraper(object):
           retry += 1
         else :
           raise e
+
+  def injectJS(self , filenames = None):
+    if filenames :
+      # logger.info("Injecting javascript file")
+      for filename in filenames :
+        try:
+          with open(filename, 'r') as jsfile:
+            js = jsfile.read()
+            self.driver.execute_script(js)
+            # logger.info("Injected {}".format(filename))
+        except Exception as e:
+          # raise e
+          logger.warning("Unable to inject {}".format(filename))
+      return True
+    return False
+
+  def writefile(self, data, filename, filetype, prefix = None, surfix = None, folder = None) : 
+    folder = folder if folder else self.savefolder
+
+    path = os.path.join(os.getcwd(), folder)
+    path = path + "/"
+    if prefix :
+      path = path + prefix + "_"
+    path = path + filename
+    if surfix :
+      path = path + "_" + surfix
+    path = path + "." + filetype
+
+    with open(path, "w+") as file :
+      file.write(data)
+    return path
+
+  
