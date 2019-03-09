@@ -34,6 +34,13 @@ class FBrequester(object):
       return False
     return True
 
+  def checkToken(self):
+    url = self.normalizeQuery("{}".format(self.pageid))
+    r = requests.get(url)
+    if r.json().get("error") :
+      return r.json()
+    return { "success" : True }
+
   def getFeed(self):
     url = self.normalizeQuery("{}/feed".format(self.pageid), GET_FEED_PARAMS)
     r = self.checkBadreq(requests.get(url))
@@ -46,6 +53,12 @@ class FBrequester(object):
       # data.get("reactions").pop("paging")
       # data.get("comments").pop("paging")
     return datalist
+
+  def getName(self):
+    url = self.normalizeQuery("{}".format(self.pageid))
+    r = self.checkBadreq(requests.get(url))
+    datalist = r.json()
+    return datalist.get("name")
 
   """
   HELPER METHOD

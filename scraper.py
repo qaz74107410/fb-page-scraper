@@ -21,7 +21,7 @@ SCAPE_OPTION = {}
 TRAIN_HTML_OPTION = {}
 JS_FILENAMES = [
   "jquery-3.3.1.min.js",
-  "functions.js"
+  "scraper-functions.js"
 ]
 
 # string value defination
@@ -78,27 +78,47 @@ class Scraper(object):
   '''
 
   def api_connect(self, page_access_token, pageid) :
+    logger.info("Connecting fb API...")
     fb = FBrequester(page_access_token, pageid)
     if fb.ping() :
       self.fb = fb
+      self.is_apiconnect = True
+      logger.info("Connected")
       return True
+    logger.warning("Connection failed : " + fb.checkToken().get("error").get("message"))
     return False
 
-  def trainHTML(self, options = TRAIN_HTML_OPTION):
+  def trainHTML(self, train_pag_url, options = TRAIN_HTML_OPTION):
     driver = self.driver
+
+    if not self.is_apiconnect :
+      raise Exception(logger.error("StateException : " + "API not connected. Use api_connect() first or check your page token."))
     fb = self.fb
 
     # 
     # part 1 get data from page token by GraphAPI
     # 
 
-    if not fb :
-      raise Exception(logger.error("StateException : " + "API not connected. Use api_connect() first."))
-
     logger.info("Getting fb fanpage feeds...")
     feeds = fb.getFeed()
     fullpath = self.writefile(fb.pretty(feeds), fb.pageid, "txt", surfix = "token")
-    logger.info("Saved fb fanpage {}".format(fullpath))
+    logger.info("Saved fb fanpage data from token at : {}".format(fullpath))
+
+    # 
+    # part 2 get each post blocks 
+    # 
+
+    logger.info("Locate for trainning from fb fanpage : {}".format(train_pag_url))
+    driver.get(train_pag_url)
+    fbpage_name = self.fb.getName()
+    self.wait_until(By.XPATH , "(//*[contains(text(), '" + fbpage_name + "')] | //*[@value='" + fbpage_name + "'])")
+    self.injectJS(JS_FILENAMES)
+    logger.info("Getting fb fanpage blocks by expanding name method...")
+    postblocks = driver.execute_script("return Scraper.ping()")  
+    print(postblocks);
+    fullpath = self.writefile(postblocks, fb.pageid, "txt", surfix = "html")
+    logger.info("Saved fb fanpage data blocks html {}".format(fullpath))
+
 
   '''
   APPLIED PART
@@ -131,7 +151,11 @@ class Scraper(object):
 
     # check if page is ready
     # if "search" exist
-    self.wait_until(By.XPATH , "(//*[contains(text(), '" + TXT["SEARCH"] + "')] | //*[@value='" + TXT["SEARCH"] + "'])")
+    try:
+      self.wait_until(By.XPATH , "(//*[contains(text(), '" + TXT["SEARCH"] + "')] | //*[@value='" + TXT["SEARCH"] + "'])")
+    except TimeoutException as e:
+      logger.error("Facebook login unsucessful : make sure user and password correct and swicth langugese")
+      raise e
     self.is_login = True
     logger.info("Login Successful")
     return True
@@ -178,7 +202,7 @@ class Scraper(object):
           with open(filename, 'r') as jsfile:
             js = jsfile.read()
             self.driver.execute_script(js)
-            # logger.info("Injected {}".format(filename))
+            logger.info("Injected {}".format(filename))
         except Exception as e:
           # raise e
           logger.warning("Unable to inject {}".format(filename))
