@@ -1,18 +1,22 @@
 import time
 import os
+import random
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from logger import logger
 from fbrequester import FBrequester
 
 # from struct import HTMLstruct
 
 # default setting
-DRIVER = webdriver.Firefox()
+USER_AGENT = "Opera/9.80 (J2ME/MIDP; Opera Mini/5.1.21214/28.2725; U; ru) Presto/2.8.119 Version/11.10"
+FF_PROFILE = webdriver.FirefoxProfile()
+FF_PROFILE.set_preference("general.useragent.override", USER_AGENT)
+DRIVER = webdriver.Firefox(FF_PROFILE)
 CLOSE_DELAY = 5 
 WAIT_TIME = 2
 MAX_RETRY = 5
@@ -27,7 +31,9 @@ JS_FILENAMES = [
 # string value defination
 # in case we use Portuguese for easier detection
 TXT = {
-  "SEARCH" : "Pesquisar"
+  "SEARCH" : "Pesquisar",
+  "MORE_POST" : "Mostrar mais",
+  "LIKE" : "Gosto"
 }
 
 # status
@@ -111,13 +117,36 @@ class Scraper(object):
     logger.info("Locate for trainning from fb fanpage : {}".format(train_pag_url))
     driver.get(train_pag_url)
     fbpage_name = self.fb.getName()
+
     self.wait_until(By.XPATH , "(//*[contains(text(), '" + fbpage_name + "')] | //*[@value='" + fbpage_name + "'])")
-    self.injectJS(JS_FILENAMES)
     logger.info("Getting fb fanpage blocks by expanding name method...")
-    postblocks = driver.execute_script("return Scraper.ping()")  
-    print(postblocks);
-    fullpath = self.writefile(postblocks, fb.pageid, "txt", surfix = "html")
-    logger.info("Saved fb fanpage data blocks html {}".format(fullpath))
+
+    is_more_post = True
+    postblocks = []
+
+    try:
+      while is_more_post:
+        try:
+          self.injectJS(JS_FILENAMES)
+          # Getting post by javascript
+          js = "return Scraper.findPostBlocks('{}', '{}')".format(fbpage_name, TXT["LIKE"])
+          # print(js)
+          postblocks_per_page = driver.execute_script(js)  
+          for pb in postblocks_per_page:
+            postblocks.append(pb.get_attribute('innerHTML'))
+
+          morepost_link = driver.find_element_by_link_text(TXT["MORE_POST"])
+          before_url = driver.current_url
+          morepost_link.click()
+          self.wait_until_redirect(before_url)
+        except NoSuchElementException as e:
+          is_more_post = False
+        except TimeoutException as e :
+          raise e
+    finally:
+      fullpath = self.writefile(str(postblocks), fb.pageid, "txt", surfix = "html")
+      logger.info("Saved fb fanpage tag from HTML scraper at : {}".format(fullpath))
+
 
 
   '''
@@ -194,6 +223,9 @@ class Scraper(object):
         else :
           raise e
 
+  def randdelay(self, min, max):
+    time.sleep(random.randint(min,max))
+
   def injectJS(self , filenames = None):
     if filenames :
       # logger.info("Injecting javascript file")
@@ -202,7 +234,7 @@ class Scraper(object):
           with open(filename, 'r') as jsfile:
             js = jsfile.read()
             self.driver.execute_script(js)
-            logger.info("Injected {}".format(filename))
+            # logger.info("Injected {}".format(filename))
         except Exception as e:
           # raise e
           logger.warning("Unable to inject {}".format(filename))
@@ -221,8 +253,22 @@ class Scraper(object):
       path = path + "_" + surfix
     path = path + "." + filetype
 
-    with open(path, "w+") as file :
+    with open(path, "w+", encoding="utf-8") as file :
       file.write(data)
     return path
-
   
+    def appendfile(self, data, filename, filetype, prefix = None, surfix = None, folder = None) : 
+      folder = folder if folder else self.savefolder
+
+      path = os.path.join(os.getcwd(), folder)
+      path = path + "/"
+      if prefix :
+        path = path + prefix + "_"
+      path = path + filename
+      if surfix :
+        path = path + "_" + surfix
+      path = path + "." + filetype
+
+      with open(path, "a+", encoding="utf-8") as file :
+        file.write(data)
+      return path

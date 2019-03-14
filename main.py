@@ -27,7 +27,7 @@ AUTO_CLOSE = False
 FB_PAGE_TARGET = "https://m.facebook.com/glassesgirlXD" # glasses girl -w-
 
 # page token change often
-FB_PAGE_TOKEN = "EAAH6eMcvEDgBANjh7fLFmqo9ayekkZCN99TgQzXlZAJ1BZA6PYMZAxl19mIfshYsV6TZB0pPR5NrVBjWLoAust2HBZBZCH8QI3BnuI7jfJN1w7JQQK3y3ETOZBQ5j5CjF3Epm9CzNqhoGWzS2JkHBqXW66ZBJiOYkyytRDJq5IsvSXbBwoMq4sXPYVZBM6Wmz4cr6KTjaMQmXSywZDZD"
+FB_PAGE_TOKEN = "EAAH6eMcvEDgBAGn10YLhzoMmTYmmkZBrSo8xIu2hRW9L75n3p2XiOoeVrVfxix7f3KBktx7GT9QCzUZC0zWA7bzEGddoLvl9heOa1uqVyd15CZCCiRtde8CJL9HN87TGJCJhQJUelLnNiT16w5LAALxW0D1ehEed5D6sb7oxdnwZB2ZCTsSlSCwBkLp4LTy8ZD"
 FB_PAGE_ID = "1224164271050249"
 FB_PAGE_URL = "https://m.facebook.com/SHOP-GRADE-A-1224164271050249"
 FB_PAGE_NAME = ""
@@ -44,7 +44,7 @@ try:
   # FB_ID = input("Enter your Facebook ID : ")
   FB_ID = "Suthiwatsangsuwan@Hotmail.com"
   print("Using Facebook ID : {}".format(FB_ID))
-  FB_PW = getpass.getpass("Enter your Facebook password : ")
+  FB_PW = getpass.getpass("Enter your Facebook password (shown as blank) : ")
   
   sp.login(FB_ID ,FB_PW)
 
