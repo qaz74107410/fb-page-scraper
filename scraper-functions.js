@@ -1,6 +1,8 @@
 window.Scraper = {
   "ping" : function () {
+
     return "HELLO WORLD!"
+    
   },
   "findPostBlocks" : function (pagename, liketxt) {
 

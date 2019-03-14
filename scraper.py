@@ -147,8 +147,6 @@ class Scraper(object):
       fullpath = self.writefile(str(postblocks), fb.pageid, "txt", surfix = "html")
       logger.info("Saved fb fanpage tag from HTML scraper at : {}".format(fullpath))
 
-
-
   '''
   APPLIED PART
   '''
