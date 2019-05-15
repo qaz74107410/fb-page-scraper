@@ -213,15 +213,11 @@ class Scraper(object):
     }
 
     for pt in patterns:
-      print(pt)
       msg = pt.get("msg")
-      print(msg)
       if msg :
-        print("yes it have msg")
         duplicate = False
         for m in norpatterns.get("msg") :
           if msg == m :
-            print("it dup")
             duplicate = True
         if not duplicate :
           norpatterns["msg"].append(msg)
