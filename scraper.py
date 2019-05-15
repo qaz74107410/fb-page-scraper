@@ -20,6 +20,7 @@ DRIVER = webdriver.Firefox(FF_PROFILE)
 CLOSE_DELAY = 5 
 WAIT_TIME = 2
 MAX_RETRY = 5
+MAX_POST = 999990
 FB_URL = "https://m.facebook.com"
 SCAPE_OPTION = {}
 TRAIN_HTML_OPTION = {}
@@ -152,7 +153,7 @@ class Scraper(object):
 
 
     # 
-    # part 3 analysis each post block with data from page token
+    # part 3 get patterns each post block with data from page token
     # 
 
     # how to find "data" by walk down in html node
@@ -195,23 +196,117 @@ class Scraper(object):
         pattern["comment"] = seperator.join(elems)
 
       patterns.append(pattern)
-
-    self.patterns = patterns
     
     fullpath = self.writefile(str(patterns), fb.pageid, "txt", surfix = "pattern")
-    logger.info("Saved fb fanpage pattern from analysis scraper at : {}".format(fullpath))
+    logger.info("Saved fb fanpage pattern from html scraper at : {}".format(fullpath))
+
+    #
+    # part 4 normalize patterns html selector
+    #
+
+    # patterns analysis
+    norpatterns = {
+      "msg" : [],
+      "cmt" : [],
+      "like" : [],
+      "pics" : []
+    }
+
+    for pt in patterns:
+      print(pt)
+      msg = pt.get("msg")
+      print(msg)
+      if msg :
+        print("yes it have msg")
+        duplicate = False
+        for m in norpatterns.get("msg") :
+          if msg == m :
+            print("it dup")
+            duplicate = True
+        if not duplicate :
+          norpatterns["msg"].append(msg)
+
+
+      cmt = pt.get("comment")
+      if cmt :
+        duplicate = False
+        for c in norpatterns.get("cmt") :
+          if cmt == c :
+            duplicate = True
+        if not duplicate :
+          norpatterns["cmt"].append(cmt)
+
+      like = pt.get("like")
+      if like :
+        duplicate = False
+        for l in norpatterns.get("like") :
+          if like == l :
+            duplicate = True
+        if not duplicate :
+          norpatterns["like"].append(like)
+
+      pics = pt.get("pics")
+      if pics :
+        for pic in pics :
+          duplicate = False
+          for p in norpatterns.get("pics") :
+            if pic == p :
+              duplicate = True
+          if not duplicate :
+            norpatterns["pics"].append(pic)
+
+    self.norpatterns = norpatterns
+    
+    fullpath = self.writefile(str(norpatterns), fb.pageid, "txt", surfix = "norpatterns")
+    logger.info("Saved fb fanpage pattern normalize at : {}".format(fullpath))
+    
 
   '''
   APPLIED PART
   '''
   
-  def scape(self, page, options = SCAPE_OPTION):
+  def scape(self, pageurl, maxpost = MAX_POST, options = SCAPE_OPTION):
     driver = self.driver
     custompatterns = SCAPE_OPTION.get("patterns")
     patterns = custompatterns if custompatterns else self.patterns 
-    logger.info("Scaping fb page \"{}\" using {} ...".format(page, driver.__class__.__module__))
-    driver.get(page)
-    time.sleep(10)
+    logger.info("Scaping fb page \"{}\" ...".format(pageurl))
+
+    is_more_post = True
+    postblocks = []
+
+    try:
+      while is_more_post and len(postblocks) < maxpost:
+        try:
+          self.injectJS(JS_FILENAMES)
+          # Getting post by javascript
+          # Scraper.findPostBlocks(facebookpagename, likebuttonname)
+          js = "return Scraper.findPostBlocks('{}', '{}')".format(fbpage_name, TXT["LIKE"])
+          postblocks_per_page = driver.execute_script(js)  
+          for pb in postblocks_per_page:
+            postblocks.append(pb.get_attribute('innerHTML'))
+
+          morepost_link = driver.find_element_by_link_text(TXT["MORE_POST"])
+          before_url = driver.current_url
+          morepost_link.click()
+          self.wait_until_redirect(before_url)
+        except NoSuchElementException as e:
+          is_more_post = False
+        except TimeoutException as e :
+          raise e
+    finally:
+      fullpath = self.writefile(str(postblocks), fb.pageid, "txt", surfix = "s_html")
+      logger.info("Saved fb fanpage tag from HTML scraper at : {}".format(fullpath))      
+
+    for pb in postblocks :
+      driver.execute_script("return Scraper.clearbody()")
+      driver.execute_script("return Scraper.html(`{}`)".format(pb))
+      
+      
+
+
+
+    driver.get(pageurl)
+
 
   def login(self, fid, fpw):
     driver = self.driver

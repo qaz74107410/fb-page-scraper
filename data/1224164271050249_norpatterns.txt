@@ -1,0 +1,7 @@
+{'msg': ['DIV > DIV > DIV > DIV > DIV > DIV > SPAN > P',
+ 'DIV > DIV > SPAN > P'],
+ 'cmt': ['DIV > DIV > A'],
+ 'like': ['DIV > DIV > SPAN > A'],
+ 'pics': ['DIV > DIV > DIV > DIV > DIV > DIV > DIV > A > IMG',
+ 'DIV > DIV > A > DIV > TABLE > TBODY > TR > TD > IMG',
+ 'DIV > DIV > DIV > A > IMG']}
