@@ -15,7 +15,8 @@ AUTO_CLOSE = False
 
 # FB_ID = "lckpdpk_warmansen_1524446842@tfbnw.net"
 # FB_PW = "uv9rkvofapp"
-FB_PAGE_TARGET = "https://m.facebook.com/glassesgirlXD" # glasses girl -w-
+FB_PAGE_TARGET = "https://m.facebook.com/cupemag/"
+FB_PAGE_NAME = "สาวแว่น"
 
 # page token change often
 # you can get it here : https://developers.facebook.com/tools/explorer
@@ -44,6 +45,7 @@ def main():
     # need train first
     sp.api_connect(FB_PAGE_TOKEN, FB_PAGE_ID)
     sp.trainHTML(FB_PAGE_URL)
+    sp.scape(FB_PAGE_TARGET, maxpost = 100)
 
   finally:
     if AUTO_CLOSE : sp.close_driver()

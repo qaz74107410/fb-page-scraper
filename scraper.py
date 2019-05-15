@@ -1,5 +1,8 @@
 import time
 import os
+import re
+import csv
+import datetime
 import random
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
@@ -13,7 +16,8 @@ from fbrequester import FBrequester
 # from struct import HTMLstruct
 
 # default setting
-USER_AGENT = "Opera/9.80 (J2ME/MIDP; Opera Mini/5.1.21214/28.2725; U; ru) Presto/2.8.119 Version/11.10"
+# USER_AGENT = "Opera/9.80 (J2ME/MIDP; Opera Mini/5.1.21214/28.2725; U; ru) Presto/2.8.119 Version/11.10"
+USER_AGENT = "Mozilla/5.0 (compatible; MSIE 9.0; Windows Phone OS 7.5; Trident/5.0; IEMobile/9.0; HTC; Radar C110e; 1.08.164.02)"
 FF_PROFILE = webdriver.FirefoxProfile()
 FF_PROFILE.set_preference("general.useragent.override", USER_AGENT)
 DRIVER = webdriver.Firefox(FF_PROFILE)
@@ -22,6 +26,7 @@ WAIT_TIME = 2
 MAX_RETRY = 5
 MAX_POST = 999990
 FB_URL = "https://m.facebook.com"
+FB_URL_FULL = "https://www.facebook.com"
 SCAPE_OPTION = {}
 TRAIN_HTML_OPTION = {}
 JS_FILENAMES = [
@@ -195,6 +200,13 @@ class Scraper(object):
         elems.reverse()
         pattern["comment"] = seperator.join(elems)
 
+      # if have comments
+      commentsresult = driver.execute_script("return Scraper.findCommentCount(`{}`, `{}`)".format('body', TXT["COMMENT"]))
+      if len(commentsresult.get("elem")) :
+        elems = commentsresult.get("elem")
+        elems.reverse()
+        pattern["comment"] = seperator.join(elems)
+
       patterns.append(pattern)
     
     fullpath = self.writefile(str(patterns), fb.pageid, "txt", surfix = "pattern")
@@ -251,7 +263,7 @@ class Scraper(object):
           if not duplicate :
             norpatterns["pics"].append(pic)
 
-    self.norpatterns = norpatterns
+    self.patterns = norpatterns
     
     fullpath = self.writefile(str(norpatterns), fb.pageid, "txt", surfix = "norpatterns")
     logger.info("Saved fb fanpage pattern normalize at : {}".format(fullpath))
@@ -263,12 +275,25 @@ class Scraper(object):
   
   def scape(self, pageurl, maxpost = MAX_POST, options = SCAPE_OPTION):
     driver = self.driver
+    fb = self.fb
+
     custompatterns = SCAPE_OPTION.get("patterns")
     patterns = custompatterns if custompatterns else self.patterns 
     logger.info("Scaping fb page \"{}\" ...".format(pageurl))
+    driver.get(pageurl)
+
+    self.injectJS(JS_FILENAMES)
+
+    # 
+    # part 1 get posts from target fan page
+    # 
 
     is_more_post = True
     postblocks = []
+
+    self.injectJS(JS_FILENAMES)
+    pagename = driver.execute_script("return $('h1').text()")
+    self.wait_until(By.XPATH , "(//*[contains(text(), '" + pagename + "')] | //*[@value='" + pagename + "'])")
 
     try:
       while is_more_post and len(postblocks) < maxpost:
@@ -276,7 +301,7 @@ class Scraper(object):
           self.injectJS(JS_FILENAMES)
           # Getting post by javascript
           # Scraper.findPostBlocks(facebookpagename, likebuttonname)
-          js = "return Scraper.findPostBlocks('{}', '{}')".format(fbpage_name, TXT["LIKE"])
+          js = "return Scraper.findPostBlocks('{}', '{}')".format(pagename, TXT["LIKE"])
           postblocks_per_page = driver.execute_script(js)  
           for pb in postblocks_per_page:
             postblocks.append(pb.get_attribute('innerHTML'))
@@ -293,15 +318,92 @@ class Scraper(object):
       fullpath = self.writefile(str(postblocks), fb.pageid, "txt", surfix = "s_html")
       logger.info("Saved fb fanpage tag from HTML scraper at : {}".format(fullpath))      
 
+    # 
+    # part 2 extract data
+    # 
+
+    extractdata = []
+
+    self.injectJS(JS_FILENAMES)
+
+    eachid = 0
+
     for pb in postblocks :
       driver.execute_script("return Scraper.clearbody()")
       driver.execute_script("return Scraper.html(`{}`)".format(pb))
-      
-      
+      eachid = eachid + 1
 
+      eachdata = {
+        "id" : eachid,
+        "postid" : "",
+        "date" : "",
+        "url" : "",
+        "msg" : "",
+        "cmt" : 0,
+        "like" : 0,
+        "pics" : []
+      }
+      fieldnames = ["id", "postid", "date", "url", "msg", "cmt", "like", "pics"]
+      # fieldnames = ["message", "comment", "like", "pictures"]
 
+      postid = driver.execute_script("return Scraper.getID()")
+      if postid != "" and postid :
+        eachdata["postid"] = postid
 
-    driver.get(pageurl)
+      url = "{}/{}".format(FB_URL_FULL, postid)
+      if url != "" and url :
+        eachdata["url"] = url
+
+      date = driver.execute_script("return Scraper.getDate()")
+      if date != "" and date :
+        if "today" in date :
+          date = datetime.datetime.now().strftime("%d/%m")
+        eachdata["date"] = date
+
+      for ptmsg in patterns.get("msg"):
+        msg = driver.execute_script("return $(`{}`).find(`{}`).text()".format('body', ptmsg))
+        if msg != "" and msg :
+          eachdata["msg"] = msg
+
+      for ptcmt in patterns.get("cmt"):
+        cmt = driver.execute_script("return $(`{}`).find(`{}`).text()".format('body', ptcmt))
+        if cmt != "" and cmt :
+          cmt = re.sub("[^0-9]", "", cmt)
+          if "mil" in cmt :
+            cmt.replace(" mil", "")
+            cmt = int(cmt)
+          try:
+            cmt = int(cmt)
+          except ValueError as e:
+            break
+          eachdata["cmt"] = int(cmt)
+
+      for ptlike in patterns.get("like"):
+        like = driver.execute_script("return $(`{}`).find(`{}`).text()".format('body', ptlike))
+        if like != "" and like :
+          like = re.sub("[^0-9]", "", like)
+          if "mil" in like :
+            like.replace(" mil", "")
+            like = int(like)
+          try:
+            like = int(like)
+          except ValueError as e:
+            break
+          eachdata["like"] = int(like)
+        
+      for ptpics in patterns.get("pics"):
+        pics = driver.execute_script("return  Scraper.extractPics(`{}`, `{}`)".format('body', ptpics))
+        if len(pics) :
+          eachdata["pics"] = pics
+        
+      extractdata.append(eachdata)
+
+    fullpath = self.writefile(str(extractdata), fb.pageid, "txt", surfix = "data")
+    logger.info("Saved fb fanpage data at : {}".format(fullpath))      
+    
+    fullpath = self.writefile(extractdata, fb.pageid, "csv", surfix = "data", fieldnames = fieldnames)
+    # fullpath = self.writefile(str(extractdata), fb.pageid, "csv", surfix = "data")
+    logger.info("Saved fb fanpage data at : {}".format(fullpath))      
 
 
   def login(self, fid, fpw):
@@ -383,7 +485,7 @@ class Scraper(object):
       return True
     return False
 
-  def writefile(self, data, filename, filetype, prefix = None, surfix = None, folder = None) : 
+  def writefile(self, data, filename, filetype, prefix = None, surfix = None, folder = None, fieldnames = None) : 
     folder = folder if folder else self.savefolder
 
     path = os.path.join(os.getcwd(), folder)
@@ -395,8 +497,16 @@ class Scraper(object):
       path = path + "_" + surfix
     path = path + "." + filetype
 
-    with open(path, "w+", encoding="utf-8") as file :
-      file.write(data)
+    if filetype == "csv" :
+      with open(path, "w+", newline='', encoding="utf-8") as file :
+        writer = csv.DictWriter(file, fieldnames = fieldnames)
+        writer.writeheader()
+
+        for each in data:
+          writer.writerow(each)
+    else :
+      with open(path, "w+", encoding="utf-8") as file :
+        file.write(data)
     return path
   
     def appendfile(self, data, filename, filetype, prefix = None, surfix = None, folder = None) : 
