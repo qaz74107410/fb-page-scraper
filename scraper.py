@@ -33,7 +33,9 @@ JS_FILENAMES = [
 TXT = {
   "SEARCH" : "Pesquisar",
   "MORE_POST" : "Mostrar mais",
-  "LIKE" : "Gosto"
+  "LIKE" : "Gosto",
+  "COMMENT" : "comentário"
+  # "COMMENT" : "coment"
 }
 
 # status
@@ -50,7 +52,7 @@ class Scraper(object):
 
   savefolder = "data"
 
-  HTMLprops = {}
+  patterns = None
 
   def __init__(self, driver = DRIVER):
     # setup driver
@@ -101,7 +103,7 @@ class Scraper(object):
       raise Exception(logger.error("StateException : " + "API not connected. Use api_connect() first or check your page token."))
     fb = self.fb
 
-    # 
+    #  
     # part 1 get data from page token by GraphAPI
     # 
 
@@ -129,6 +131,7 @@ class Scraper(object):
         try:
           self.injectJS(JS_FILENAMES)
           # Getting post by javascript
+          # Scraper.findPostBlocks(facebookpagename, likebuttonname)
           js = "return Scraper.findPostBlocks('{}', '{}')".format(fbpage_name, TXT["LIKE"])
           # print(js)
           postblocks_per_page = driver.execute_script(js)  
@@ -147,18 +150,68 @@ class Scraper(object):
       fullpath = self.writefile(str(postblocks), fb.pageid, "txt", surfix = "html")
       logger.info("Saved fb fanpage tag from HTML scraper at : {}".format(fullpath))
 
+
+    # 
+    # part 3 analysis each post block with data from page token
+    # 
+
+    # how to find "data" by walk down in html node
+    patterns = []
+    seperator = " > "
+
+    for pb, f in zip(postblocks, feeds):
+      pattern = {}
+      driver.execute_script("return Scraper.clearbody()")
+      driver.execute_script("return Scraper.html(`{}`)".format(pb))
+
+      # if have messages
+      msg = f.get("message")
+      msgresult = driver.execute_script("return Scraper.findTxt(`{}`, `{}`)".format('body', msg))
+      if len(msgresult.get("elem")) :
+        elems = msgresult.get("elem")
+        elems.reverse()
+        pattern["msg"] = seperator.join(elems)
+
+      # if have pictures
+      imgsresult = driver.execute_script("return Scraper.findImgTags(`{}`)".format('body'))
+      if imgsresult.get("found") :
+        pattern["pics"] = []
+        for elems in imgsresult.get("elems") :
+          elems.reverse()
+          pattern["pics"].append(seperator.join(elems))
+
+      # if have likes
+      likeresult = driver.execute_script("return Scraper.findLikeCount(`{}`, `{}`)".format('body', TXT["LIKE"]))
+      if len(likeresult.get("elem")) :
+        elems = likeresult.get("elem")
+        elems.reverse()
+        pattern["like"] = seperator.join(elems)
+
+      # if have comments
+      commentsresult = driver.execute_script("return Scraper.findCommentCount(`{}`, `{}`)".format('body', TXT["COMMENT"]))
+      if len(commentsresult.get("elem")) :
+        elems = commentsresult.get("elem")
+        elems.reverse()
+        pattern["comment"] = seperator.join(elems)
+
+      patterns.append(pattern)
+
+    self.patterns = patterns
+    
+    fullpath = self.writefile(str(patterns), fb.pageid, "txt", surfix = "pattern")
+    logger.info("Saved fb fanpage pattern from analysis scraper at : {}".format(fullpath))
+
   '''
   APPLIED PART
   '''
   
   def scape(self, page, options = SCAPE_OPTION):
     driver = self.driver
-    try:
-      logger.info("Scaping fb page \"{}\" using {} ...".format(page, driver.__class__.__module__))
-      driver.get(page)
-      time.sleep(10)
-    except Exception as e:
-      raise e
+    custompatterns = SCAPE_OPTION.get("patterns")
+    patterns = custompatterns if custompatterns else self.patterns 
+    logger.info("Scaping fb page \"{}\" using {} ...".format(page, driver.__class__.__module__))
+    driver.get(page)
+    time.sleep(10)
 
   def login(self, fid, fpw):
     driver = self.driver
@@ -270,3 +323,17 @@ class Scraper(object):
       with open(path, "a+", encoding="utf-8") as file :
         file.write(data)
       return path
+
+  def dictContain(self, d, targetkey, node = None) :
+    if node == None :
+      node = []
+    if type(d) == type({}) :
+      for key in d :
+        if key == targetkey :
+          node.append(key)
+          return True , node
+        nestfound, _ = self.dictContain(d.get(key), targetkey, node)
+        if nestfound :
+          node.append(key)
+          return True, node
+    return False, None

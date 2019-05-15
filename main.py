@@ -3,15 +3,6 @@ import getpass
 from scraper import Scraper
 from logger import logger
 
-# Test User Login Credentials
-# Name	
-
-# Carol Albeejehdaiig Warmansen
-# User ID	100025505841997
-# Login Email	lckpdpk_warmansen_1524446842@tfbnw.net
-# Password	uv9rkvofapp
-# https://www.facebook.com/settings?tab=language&section=account&view
-
 # 
 # Scrapper Setting
 # 
@@ -27,7 +18,8 @@ AUTO_CLOSE = False
 FB_PAGE_TARGET = "https://m.facebook.com/glassesgirlXD" # glasses girl -w-
 
 # page token change often
-FB_PAGE_TOKEN = "EAAH6eMcvEDgBAGn10YLhzoMmTYmmkZBrSo8xIu2hRW9L75n3p2XiOoeVrVfxix7f3KBktx7GT9QCzUZC0zWA7bzEGddoLvl9heOa1uqVyd15CZCCiRtde8CJL9HN87TGJCJhQJUelLnNiT16w5LAALxW0D1ehEed5D6sb7oxdnwZB2ZCTsSlSCwBkLp4LTy8ZD"
+# you can get it here : https://developers.facebook.com/tools/explorer
+FB_PAGE_TOKEN = "EAAH6eMcvEDgBAIcVMfiZAQZATDFmF86h2zHiE8xZAxrZCghPcUrbeZAQ3IdhPhHZCfZAjjGINkjZAd414Hfl2wrTgOTIWMUEu1RXdP1Cr2mWAlnLp7tdtwnMEbZBmfgVUeZB0DwLx6t1C7uHpF8075ASDvrk6E0ZAVqthpvELKfLCk3pNxAZATr1HbM42EY72GzbzHKm9cZCJqo6mzLVjJzb5Whnd"
 FB_PAGE_ID = "1224164271050249"
 FB_PAGE_URL = "https://m.facebook.com/SHOP-GRADE-A-1224164271050249"
 FB_PAGE_NAME = ""
@@ -35,22 +27,26 @@ FB_PAGE_NAME = ""
 # Save directory
 FILE_DIR = "data"
 
-# scaper
-sp = None
-try:
-  sp = Scraper()
+def main():
 
-  # enter Facebook accout
-  # FB_ID = input("Enter your Facebook ID : ")
-  FB_ID = "Suthiwatsangsuwan@Hotmail.com"
-  print("Using Facebook ID : {}".format(FB_ID))
-  FB_PW = getpass.getpass("Enter your Facebook password (shown as blank) : ")
-  
-  sp.login(FB_ID ,FB_PW)
+  sp = None
+  try:
+    sp = Scraper()
 
-  # need train first
-  sp.api_connect(FB_PAGE_TOKEN, FB_PAGE_ID)
-  sp.trainHTML(FB_PAGE_URL)
-  
-finally:
-  if AUTO_CLOSE : sp.close_driver()
+    # enter Facebook accout
+    # FB_ID = input("Enter your Facebook ID : ")
+    FB_ID = "Suthiwatsangsuwan@Hotmail.com" # lazy debug
+    print("Using Facebook ID : {}".format(FB_ID))
+    FB_PW = getpass.getpass("Enter your Facebook password (shown as blank) : ")
+    
+    sp.login(FB_ID ,FB_PW)
+
+    # need train first
+    sp.api_connect(FB_PAGE_TOKEN, FB_PAGE_ID)
+    sp.trainHTML(FB_PAGE_URL)
+
+  finally:
+    if AUTO_CLOSE : sp.close_driver()
+
+if __name__ == "__main__" : 
+  main()
