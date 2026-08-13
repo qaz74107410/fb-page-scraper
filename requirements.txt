@@ -1,7 +1,7 @@
 coloredlogs==10.0
 colorlog==4.0.2
 selenium==3.141.0
-urllib3==1.26.5
+urllib3==2.7.0
 zenlog==1.1
 requests==2.33.0
 numpy==1.16.2
